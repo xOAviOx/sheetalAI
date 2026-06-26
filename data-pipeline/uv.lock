@@ -1877,6 +1877,7 @@ name = "sheetalai-data-pipeline"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "affine" },
     { name = "earthengine-api" },
     { name = "geemap", version = "0.37.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "geemap", version = "0.38.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
@@ -1909,6 +1910,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "affine", specifier = ">=2.4" },
     { name = "earthengine-api", specifier = ">=1.0.0" },
     { name = "geemap", specifier = ">=0.32.0" },
     { name = "geopandas", specifier = ">=1.0" },
