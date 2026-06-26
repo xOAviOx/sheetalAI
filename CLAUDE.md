@@ -17,6 +17,7 @@ dashboard. Pilot city: **Ahmedabad**. Built phase-by-phase (Phase 0–9), commit
 - Config-driven cities: adding a city = edit `data-pipeline/config/cities.yaml`, not code.
 - Stack prefs: TypeScript, Tailwind, Framer Motion, dark premium aesthetic. Python 3.11+, type hints.
 - Never commit `data/` or `.env`.
+- **Git commits: no `Co-Authored-By: Claude` trailer** (no Claude as a contributor).
 
 ## Environment specifics (this machine)
 - System Python is 3.14 (too new for geospatial wheels) → **uv envs pinned to 3.12**. uv auto-fetches it.
@@ -58,14 +59,21 @@ GEE export. Synthetic source used for development/demo. To run real export: user
 ## Progress
 - **Phase 0 ✅** committed (31bc5f8): monorepo, git, 3 uv envs, cities.yaml, gee_auth, FastAPI
   (/health,/cities), Next.js landing pinging API, run_local.sh, docker-compose (optional PostGIS).
-- **Phase 1** in progress: data-source abstraction + synthetic + GEE sources, canonical grid,
-  features.py. Verified on ahmedabad: 903×791 @30m, 100% valid coverage, LST 26–48°C (mean 38.9),
-  all bands share identical mask, driver correlations correct (NDBI +0.83, impervious +0.73, NDVI −0.25),
-  hottest 10% = impervious 0.64/ndvi 0.16 vs coolest impervious 0/ndvi 0.35. Notebook
-  `notebooks/01_phase1_data_check.ipynb` renders LST. NOT yet committed.
+- **Phase 1 ✅** committed (403bc01..8dd9997): data-source abstraction + synthetic + GEE sources,
+  canonical grid, features.py. Verified on ahmedabad: 903×791 @30m, 100% valid coverage,
+  LST 26–48°C (mean 38.9), all bands share identical mask, driver correlations correct
+  (NDBI +0.83, impervious +0.73, NDVI −0.25), hottest 10% = impervious 0.64/ndvi 0.16 vs
+  coolest impervious 0/ndvi 0.35. Notebook `notebooks/01_phase1_data_check.ipynb` renders LST.
+- **Phase 2 ✅** hotspots (`ml/hotspots.py`): Getis-Ord Gi*, binary weights, circular 150 m
+  neighbourhood (5 px / 81-px window), computed analytically by convolution (esda's permutation
+  engine is intractable at 714k px) + Benjamini-Hochberg FDR. **Cross-checked against
+  `esda.G_Local` on a 40×40 window: max|Δz| = 1.2e-13** (exact). Outputs `data/{city}/hotspots.tif`
+  (gi_z, sig_class), `hotspots.png`, `hotspots_summary.json`. On ahmedabad: z −31..+22.7, ~33% hot /
+  ~47% cold / 20% NS; sanity LST hot95+ 42.4°C vs cold95+ 36.4°C vs 38.9 overall. Hot core over
+  built-up centre, cold along Sabarmati + vegetated periphery.
 
 ## Phase plan (remaining)
-2 hotspots (Getis-Ord Gi*, esda/libpysal) → 3 driver model (XGBoost + spatial-block CV + SHAP) →
+3 driver model (XGBoost + spatial-block CV + SHAP) →
 4 simulation (counterfactual ΔLST, clamp to observed ranges, uncertainty bands, literature sanity) →
 5 equity prioritisation (0.4·heat+0.3·pop+0.3·vuln) → 6 FastAPI endpoints → 7 dashboard
 (MapLibre+deck.gl BitmapLayer for rasters, GeoJsonLayer for zones) → 8 Groq advisory (flagged) →
