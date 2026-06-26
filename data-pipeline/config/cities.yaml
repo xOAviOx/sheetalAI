@@ -1,0 +1,20 @@
+# ============================================================
+# SheetalAI — city configuration
+# Adding a city is a CONFIG change, not a code change.
+# All pipeline/ml/api code reads AOI + params from here.
+# bbox is [minLon, minLat, maxLon, maxLat] in EPSG:4326.
+# ============================================================
+
+ahmedabad:
+  display_name: "Ahmedabad"
+  country: "India"
+  bbox: [72.46, 22.92, 72.72, 23.13]   # [minLon, minLat, maxLon, maxLat]
+  utm_epsg: 32643                        # UTM zone 43N
+  grid_size_m: 30
+  zone_aggregation: grid                 # "ward" if a ward shapefile is provided, else "grid"
+  zone_grid_size_m: 750                  # zone cell size when zone_aggregation == grid
+  date_range: ["2024-03-01", "2024-06-15"]  # pre-monsoon hot season
+  cloud_cover_max: 20                    # % — scene-level filter before masking
+  # Optional ward boundary (GeoJSON/shapefile path, relative to data-pipeline/).
+  # When present and zone_aggregation == ward, zones come from this instead of a grid.
+  ward_boundary: null

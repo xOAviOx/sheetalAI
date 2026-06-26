@@ -1,0 +1,27 @@
+# ============================================================
+# OPTIONAL PostGIS upgrade — NOT required for local run.
+# The default SheetalAI setup uses local files (GeoParquet / GeoJSON / COG).
+# Enable this only if you later set USE_POSTGIS=true and want a spatial DB.
+#
+#   docker compose up -d postgis
+# ============================================================
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    container_name: sheetal-postgis
+    environment:
+      POSTGRES_USER: sheetal
+      POSTGRES_PASSWORD: sheetal
+      POSTGRES_DB: sheetal
+    ports:
+      - "5432:5432"
+    volumes:
+      - sheetal_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sheetal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sheetal_pg:

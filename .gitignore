@@ -1,0 +1,54 @@
+# ---- Data & secrets (never commit) ----
+data/
+*.tif
+*.tiff
+*.cog
+*.parquet
+*.geojson
+!data-pipeline/config/*.geojson   # allow small config geojson if ever needed
+.env
+.env.local
+*.pem
+.ee_credentials/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.uv/
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ---- ML model artifacts ----
+ml/models/*.pkl
+ml/models/*.joblib
+ml/models/*.json
+ml/models/*.ubj
+ml/models/*.txt
+!ml/models/.gitkeep
+
+# ---- Node / Next.js ----
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
