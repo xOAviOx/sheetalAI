@@ -1,10 +1,9 @@
 "use client";
 
 /**
- * SheetalAI Dashboard — Phase 7.
- * MapLibre GL + deck.gl (BitmapLayer / GeoJsonLayer) with equity zone
- * prioritisation. Left sidebar = city stats + layer switcher.
- * Right panel = zone detail (click any zone).
+ * SheetalAI Dashboard — Phase 9.
+ * Multi-city: top-bar city switcher reloads all data for the selected city.
+ * Phase 8: advisory panel in ZonePanel (Groq, gated by advisoryEnabled).
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -21,7 +20,6 @@ import {
   type ZoneFeatureCollection,
 } from "@/lib/api";
 
-// Lazy-load the map — maplibre-gl / deck.gl must never run on the server
 const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
   loading: () => (
@@ -34,9 +32,8 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   ),
 });
 
-const DEFAULT_CITY = "ahmedabad";
-
 export default function Dashboard() {
+  const [allCities, setAllCities] = useState<City[]>([]);
   const [city, setCity] = useState<City | null>(null);
   const [stats, setStats] = useState<CityStats | null>(null);
   const [shap, setShap] = useState<ShapGlobal | null>(null);
@@ -44,40 +41,62 @@ export default function Dashboard() {
   const [activeLayer, setActiveLayer] = useState<LayerKey>("zones");
   const [selectedZone, setSelectedZone] = useState<ZoneFeature | null>(null);
   const [apiOk, setApiOk] = useState(false);
+  const [advisoryEnabled, setAdvisoryEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Bootstrap: city meta + stats + zones in parallel
+  // Load city-specific data whenever `city` changes
+  const loadCity = useCallback(async (c: City, alive: () => boolean) => {
+    setStats(null);
+    setShap(null);
+    setZones(null);
+    setSelectedZone(null);
+    setActiveLayer("zones");
+    try {
+      const [cityStats, cityShap, cityZones] = await Promise.all([
+        api.summary(c.key),
+        api.shapGlobal(c.key),
+        api.zones(c.key),
+      ]);
+      if (!alive()) return;
+      setStats(cityStats);
+      setShap(cityShap);
+      setZones(cityZones);
+    } catch (err) {
+      if (alive())
+        setError(err instanceof Error ? err.message : "Failed to load city data");
+    }
+  }, []);
+
+  // Bootstrap on mount
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [cities, health] = await Promise.all([
-          api.cities(),
-          api.health(),
-        ]);
+        const [cities, health] = await Promise.all([api.cities(), api.health()]);
         if (!alive) return;
         setApiOk(health.status === "ok");
-
-        const c = cities.find((x) => x.key === DEFAULT_CITY) ?? cities[0];
-        if (!c) { setError("No cities configured in the API"); return; }
-        setCity(c);
-
-        const [cityStats, cityShap, cityZones] = await Promise.all([
-          api.summary(c.key),
-          api.shapGlobal(c.key),
-          api.zones(c.key),
-        ]);
-        if (!alive) return;
-        setStats(cityStats);
-        setShap(cityShap);
-        setZones(cityZones);
+        setAdvisoryEnabled(health.advisory_enabled);
+        if (!cities.length) { setError("No cities configured in the API"); return; }
+        setAllCities(cities);
+        const initial = cities[0];
+        setCity(initial);
+        await loadCity(initial, () => alive);
       } catch (err) {
         if (alive)
           setError(err instanceof Error ? err.message : "API unreachable");
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [loadCity]);
+
+  const handleCitySwitch = useCallback((key: string) => {
+    const c = allCities.find((x) => x.key === key);
+    if (!c || c.key === city?.key) return;
+    setCity(c);
+    let alive = true;
+    loadCity(c, () => alive);
+    return () => { alive = false; };
+  }, [allCities, city, loadCity]);
 
   const handleZoneClick = useCallback((zone: ZoneFeature | null) => {
     setSelectedZone(zone);
@@ -105,14 +124,35 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-screen bg-neutral-950 text-neutral-100 overflow-hidden">
       {/* Top bar */}
-      <header className="flex items-center gap-4 px-5 h-11 border-b border-white/5 bg-neutral-950/80 backdrop-blur shrink-0">
+      <header className="flex items-center gap-3 px-5 h-11 border-b border-white/5 bg-neutral-950/80 backdrop-blur shrink-0">
         <span className="text-sm font-semibold tracking-tight">
           Sheetal<span className="text-orange-400">AI</span>
         </span>
         <span className="text-neutral-700">|</span>
-        <span className="text-xs text-neutral-400">
-          {city ? `${city.display_name}, ${city.country}` : "Loading…"}
-        </span>
+
+        {/* City switcher */}
+        {allCities.length > 1 ? (
+          <div className="flex items-center gap-1">
+            {allCities.map((c) => (
+              <button
+                key={c.key}
+                onClick={() => handleCitySwitch(c.key)}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
+                  city?.key === c.key
+                    ? "bg-orange-500/20 text-orange-300 border border-orange-500/30"
+                    : "text-neutral-500 hover:text-neutral-300 hover:bg-white/5"
+                }`}
+              >
+                {c.display_name}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-neutral-400">
+            {city ? `${city.display_name}, ${city.country}` : "Loading…"}
+          </span>
+        )}
+
         {zones && (
           <>
             <span className="text-neutral-700">·</span>
@@ -121,12 +161,9 @@ export default function Dashboard() {
             </span>
           </>
         )}
+
         <div className="ml-auto flex items-center gap-2 text-[10px] text-neutral-600 uppercase tracking-widest">
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              apiOk ? "bg-emerald-400" : "bg-neutral-600 animate-pulse"
-            }`}
-          />
+          <span className={`h-1.5 w-1.5 rounded-full ${apiOk ? "bg-emerald-400" : "bg-neutral-600 animate-pulse"}`} />
           {apiOk ? "API live" : "connecting…"}
         </div>
       </header>
@@ -157,22 +194,17 @@ export default function Dashboard() {
             <div className="flex-1 flex items-center justify-center bg-neutral-900 h-full" />
           )}
 
-          {/* Loading zones overlay */}
           {city && !zones && !error && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="flex flex-col items-center gap-2 bg-neutral-950/70 backdrop-blur rounded-xl px-5 py-4 border border-white/5">
                 <div className="h-5 w-5 rounded-full border-2 border-orange-500/50 border-t-orange-400 animate-spin" />
-                <p className="text-xs text-neutral-400">Loading zones…</p>
+                <p className="text-xs text-neutral-400">Loading {city.display_name}…</p>
               </div>
             </div>
           )}
 
-          {/* Layer name pill */}
-          {city && (
-            <LayerPill layer={activeLayer} />
-          )}
+          {city && <LayerPill layer={activeLayer} />}
 
-          {/* Click hint */}
           {zones && !selectedZone && activeLayer === "zones" && (
             <div className="absolute bottom-16 left-1/2 -translate-x-1/2 pointer-events-none">
               <div className="rounded-full border border-white/8 bg-neutral-950/60 backdrop-blur px-3 py-1 text-[10px] text-neutral-600">
@@ -182,7 +214,12 @@ export default function Dashboard() {
           )}
         </div>
 
-        <ZonePanel zone={selectedZone} onClose={() => setSelectedZone(null)} />
+        <ZonePanel
+          zone={selectedZone}
+          onClose={() => setSelectedZone(null)}
+          cityKey={city?.key ?? "ahmedabad"}
+          advisoryEnabled={advisoryEnabled}
+        />
       </div>
     </div>
   );

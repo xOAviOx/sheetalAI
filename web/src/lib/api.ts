@@ -126,6 +126,15 @@ export interface ShapGlobal {
   importances: ShapImportance[];
 }
 
+export interface Advisory {
+  zone_id: number;
+  city: string;
+  advisory: string;
+  model: string;
+  cached: boolean;
+  generated_at: string | null;
+}
+
 // ── HTTP helpers ─────────────────────────────────────────────────────────────
 
 async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
@@ -158,4 +167,7 @@ export const api = {
 
   summary: (city: string) => getJSON<CityStats>(`/cities/${city}/summary`),
   shapGlobal: (city: string) => getJSON<ShapGlobal>(`/cities/${city}/shap/global`),
+
+  advisory: (city: string, zoneId: number) =>
+    getJSON<Advisory>(`/cities/${city}/zones/${zoneId}/advisory`),
 };

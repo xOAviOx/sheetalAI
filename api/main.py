@@ -10,11 +10,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import advisory_enabled, cors_origins, load_cities
-from routers import layers, summary, zones
+from routers import advisory, layers, summary, zones
 
 app = FastAPI(
     title="SheetalAI API",
-    version="0.6.0",
+    version="0.9.0",
     description="Read-only API over cached urban-heat analysis results.",
 )
 
@@ -29,6 +29,7 @@ app.add_middleware(
 app.include_router(zones.router)
 app.include_router(layers.router)
 app.include_router(summary.router)
+app.include_router(advisory.router)
 
 
 @app.get("/health", tags=["meta"])

@@ -1,4 +1,4 @@
-"""Phase 6 routers: zones, layers, summary."""
-from . import layers, summary, zones
+"""Phase 6 + 8 routers: zones, layers, summary, advisory."""
+from . import advisory, layers, summary, zones
 
-__all__ = ["layers", "summary", "zones"]
+__all__ = ["advisory", "layers", "summary", "zones"]

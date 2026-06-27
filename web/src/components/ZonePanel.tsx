@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ZoneFeature } from "@/lib/api";
+import { api } from "@/lib/api";
 
 const DRIVER_LABELS: Record<string, string> = {
   ndvi: "Vegetation (NDVI)",
@@ -22,15 +24,7 @@ const INTERVENTION_LABELS: Record<string, string> = {
   cool_roofs: "Cool roofs",
 };
 
-function ScoreBar({
-  label,
-  value,
-  colour,
-}: {
-  label: string;
-  value: number;
-  colour: string;
-}) {
+function ScoreBar({ label, value, colour }: { label: string; value: number; colour: string }) {
   return (
     <div>
       <div className="flex justify-between text-[10px] mb-1">
@@ -49,7 +43,6 @@ function ScoreBar({
   );
 }
 
-// Top warming SHAP for this zone (positive contribution only)
 function topShap(props: ZoneFeature["properties"]): { driver: string; value: number }[] {
   return Object.entries(props)
     .filter(([k, v]) => k.startsWith("shap_") && typeof v === "number" && (v as number) > 0)
@@ -61,11 +54,37 @@ function topShap(props: ZoneFeature["properties"]): { driver: string; value: num
 interface Props {
   zone: ZoneFeature | null;
   onClose: () => void;
+  cityKey: string;
+  advisoryEnabled: boolean;
 }
 
-export default function ZonePanel({ zone, onClose }: Props) {
+export default function ZonePanel({ zone, onClose, cityKey, advisoryEnabled }: Props) {
   const p = zone?.properties;
   const shapDrivers = p ? topShap(p) : [];
+
+  const [advisory, setAdvisory] = useState<string | null>(null);
+  const [advisoryLoading, setAdvisoryLoading] = useState(false);
+  const [advisoryError, setAdvisoryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAdvisory(null);
+    setAdvisoryError(null);
+    setAdvisoryLoading(false);
+  }, [zone?.properties.zone_id, cityKey]);
+
+  async function fetchAdvisory() {
+    if (!p || advisoryLoading) return;
+    setAdvisoryLoading(true);
+    setAdvisoryError(null);
+    try {
+      const result = await api.advisory(cityKey, p.zone_id);
+      setAdvisory(result.advisory);
+    } catch (err) {
+      setAdvisoryError(err instanceof Error ? err.message : "Failed to fetch advisory");
+    } finally {
+      setAdvisoryLoading(false);
+    }
+  }
 
   return (
     <AnimatePresence>
@@ -111,11 +130,7 @@ export default function ZonePanel({ zone, onClose }: Props) {
             </p>
             <ScoreBar label="Heat (40%)" value={p.heat_score} colour="bg-red-500/70" />
             <ScoreBar label="Population (30%)" value={p.pop_score} colour="bg-orange-500/70" />
-            <ScoreBar
-              label="Vulnerability (30%)"
-              value={p.vuln_score}
-              colour="bg-amber-500/70"
-            />
+            <ScoreBar label="Vulnerability (30%)" value={p.vuln_score} colour="bg-amber-500/70" />
           </div>
 
           {/* Measurements */}
@@ -156,7 +171,7 @@ export default function ZonePanel({ zone, onClose }: Props) {
           {shapDrivers.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">
-                Why it's hot (SHAP)
+                Why it&apos;s hot (SHAP)
               </p>
               {shapDrivers.map(({ driver, value }) => (
                 <div key={driver} className="flex items-center justify-between gap-2">
@@ -174,6 +189,55 @@ export default function ZonePanel({ zone, onClose }: Props) {
             </div>
           )}
 
+          {/* AI Advisory — Phase 8 */}
+          {advisoryEnabled && (
+            <div className="mt-4 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">
+                AI Advisory
+              </p>
+              {!advisory && !advisoryLoading && !advisoryError && (
+                <button
+                  onClick={fetchAdvisory}
+                  className="w-full rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-300 hover:bg-violet-500/20 transition-colors text-left"
+                >
+                  ✦ Generate AI advisory for this zone
+                </button>
+              )}
+              {advisoryLoading && (
+                <div className="flex items-center gap-2 py-2">
+                  <div className="h-3 w-3 rounded-full border border-violet-500/50 border-t-violet-400 animate-spin shrink-0" />
+                  <span className="text-xs text-neutral-500">Calling Groq…</span>
+                </div>
+              )}
+              {advisory && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3"
+                >
+                  <p className="text-xs text-neutral-300 leading-relaxed">{advisory}</p>
+                  <button
+                    onClick={() => { setAdvisory(null); setAdvisoryError(null); }}
+                    className="mt-2 text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
+                  >
+                    ↺ Regenerate
+                  </button>
+                </motion.div>
+              )}
+              {advisoryError && (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2.5">
+                  <p className="text-[10px] text-red-400">{advisoryError}</p>
+                  <button
+                    onClick={fetchAdvisory}
+                    className="mt-1 text-[10px] text-neutral-500 hover:text-neutral-300 transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="mt-auto pt-3 text-[10px] text-neutral-700">
             Scores are percentile-rank normalised [0–1].
             <br />
@@ -185,15 +249,7 @@ export default function ZonePanel({ zone, onClose }: Props) {
   );
 }
 
-function Row({
-  label,
-  value,
-  hot,
-}: {
-  label: string;
-  value: string;
-  hot?: boolean;
-}) {
+function Row({ label, value, hot }: { label: string; value: string; hot?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
       <span className="text-xs text-neutral-500 shrink-0">{label}</span>
