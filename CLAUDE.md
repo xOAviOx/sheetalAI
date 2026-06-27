@@ -71,9 +71,22 @@ GEE export. Synthetic source used for development/demo. To run real export: user
   (gi_z, sig_class), `hotspots.png`, `hotspots_summary.json`. On ahmedabad: z −31..+22.7, ~33% hot /
   ~47% cold / 20% NS; sanity LST hot95+ 42.4°C vs cold95+ 36.4°C vs 38.9 overall. Hot core over
   built-up centre, cold along Sabarmati + vegetated periphery.
+- **Phase 3 ✅** driver model. `ml/train.py`: XGBoost (`reg:squarederror`, hist, depth 6, lr 0.05)
+  on the 10 drivers → lst_c, with **spatial-block CV** (2.5 km blocks → 5 folds, train/test
+  spatially disjoint; inner fold for early stopping). Reports spatial-CV **and** random-KFold R²
+  so the autocorrelation-leakage gap is explicit. On ahmedabad: spatial-CV R²=0.969 / RMSE 0.57°C /
+  MAE 0.45°C; leakage gap only +0.002 (expected — synthetic LST is a near-deterministic function of
+  the drivers). Saves `models/driver_xgb.json`, `models/driver_meta.json` (feature order + observed
+  driver ranges for Phase 4 clamps), `data/{city}/prediction.tif` (lst_pred, residual),
+  `train_summary.json`. `ml/explain.py`: SHAP TreeExplainer (additivity checked, max|Δ|=9.9e-5°C);
+  global mean|SHAP|, per-pixel dominant-warming-driver raster+PNG, per-zone (750 m=25 px) signed SHAP
+  → `shap_zones.geojson` (EPSG:4326, for MapLibre), `shap_global.json`, `shap_summary.json`.
+  **Caveat (documented in summaries):** kept all 10 drivers per the contract, but vulnerability &
+  pop_density are exposure layers collinear with built-up land (corr ~0.92/0.83) — their SHAP reads
+  as association, not actionable cause; Phase 4 should perturb only biophysical drivers and Phase 5
+  weights heat+pop+vuln separately (avoid double-counting).
 
 ## Phase plan (remaining)
-3 driver model (XGBoost + spatial-block CV + SHAP) →
 4 simulation (counterfactual ΔLST, clamp to observed ranges, uncertainty bands, literature sanity) →
 5 equity prioritisation (0.4·heat+0.3·pop+0.3·vuln) → 6 FastAPI endpoints → 7 dashboard
 (MapLibre+deck.gl BitmapLayer for rasters, GeoJsonLayer for zones) → 8 Groq advisory (flagged) →
