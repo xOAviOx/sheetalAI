@@ -67,6 +67,17 @@ export default function MapView({
 
   const [viewState, setViewState] = useState<MapViewState>(initViewState);
 
+  // Re-centre when the city changes (bbox prop changes)
+  useEffect(() => {
+    setViewState({
+      longitude: (bbox[0] + bbox[2]) / 2,
+      latitude: (bbox[1] + bbox[3]) / 2,
+      zoom: 11,
+      pitch: 0,
+      bearing: 0,
+    });
+  }, [bbox]);
+
   // Mount maplibre (non-interactive; deck.gl drives navigation)
   useEffect(() => {
     if (!mapDivRef.current || mapRef.current) return;
@@ -121,7 +132,7 @@ export default function MapView({
     if (activeLayer !== "zones") {
       out.push(
         new BitmapLayer({
-          id: `bitmap-${activeLayer}`,
+          id: `bitmap-${city}-${activeLayer}`,
           image: `${API_BASE}/cities/${city}/layers/${activeLayer}.png`,
           bounds: bbox,
           opacity: 0.78,
