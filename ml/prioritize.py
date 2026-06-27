@@ -222,6 +222,7 @@ def main() -> None:
             continue
         r = agg_lookup.loc[zid]
         best_d = r["best_delta_lst_c"]
+        best_i = r["best_intervention"]
         props: dict = {
             "zone_id":           int(zid),
             "n_pixels":          int(r["n_pixels"]),
@@ -233,8 +234,8 @@ def main() -> None:
             "vuln_score":        round(float(r["vuln_score"]), 4),
             "equity_score":      round(float(r["equity_score"]), 4),
             "equity_rank":       int(r["equity_rank"]),
-            "best_intervention": r["best_intervention"],
-            "best_delta_lst_c":  (round(best_d, 3) if not np.isnan(best_d) else None),
+            "best_intervention": (None if pd.isna(best_i) else str(best_i)),
+            "best_delta_lst_c":  (None if (best_d is None or (isinstance(best_d, float) and np.isnan(best_d))) else round(best_d, 3)),
             # Carry SHAP fields from Phase 3 for the dashboard
             "dominant_driver": base["properties"]["dominant_driver"],
             **{k: v for k, v in base["properties"].items() if k.startswith("shap_")},
